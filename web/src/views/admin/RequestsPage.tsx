@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useRequests, decideRequest, type RequestItem } from "../../hooks/requests";
 import Modal from "../../components/ui/Modal";
 import Button from "../../components/ui/Button";

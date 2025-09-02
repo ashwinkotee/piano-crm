@@ -7,7 +7,12 @@
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "seed": "ts-node-dev src/seed/seed.ts"
+    "seed": "ts-node-dev src/seed/seed.ts",
+    "typecheck": "tsc --noEmit",
+    "deadcode": "knip --reporter compact",
+    "prune": "ts-prune",
+    "depcheck": "depcheck",
+    "verify": "npm run typecheck"
   },
   "keywords": [],
   "author": "",
@@ -40,6 +45,9 @@
     "jest": "^30.0.5",
     "jest-environment-jsdom": "^30.0.5",
     "ts-jest": "^29.4.1",
+    "knip": "^5.27.0",
+    "ts-prune": "^0.10.3",
+    "depcheck": "^1.4.7",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.2"
   }

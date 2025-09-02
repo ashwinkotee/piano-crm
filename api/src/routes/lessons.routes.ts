@@ -21,7 +21,7 @@ r.get("/", requireAuth(["admin", "portal"]), async (req: any, res) => {
 
     const q: any = { start: { $gte: from, $lt: to } };
 
-    // 🔒 portal sees only their own students' lessons
+    // Portal users see only their own students' lessons
     if (req.user.role !== "admin") {
       const raw = req.user.sub ?? req.user._id ?? req.user.id;
       const idStr = String(raw);
@@ -156,3 +156,4 @@ r.post("/generate-month", requireAuth(["admin"]), async (req, res) => {
 });
 
 export default r;
+

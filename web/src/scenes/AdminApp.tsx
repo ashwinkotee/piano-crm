@@ -3,6 +3,7 @@ import { useAuth } from "../store/auth";
 import StudentsPage from "../views/admin/StudentsPage";
 import SchedulePage from "../views/admin/SchedulePage";
 import RequestsPage from "../views/admin/RequestsPage";
+import GroupsPage from "../views/admin/GroupsPage";
 
 export default function AdminApp() {
   const nav = useNavigate();
@@ -17,6 +18,7 @@ export default function AdminApp() {
             <Tab to="/admin/students" label="Students" />
             <Tab to="/admin/schedule" label="Schedule" />
             <Tab to="/admin/requests" label="Requests" />
+            <Tab to="/admin/groups" label="Groups" />
             <button onClick={doLogout} className="rounded-lg border px-3 py-1 hover:bg-slate-100">Logout</button>
           </nav>
         </div>
@@ -26,6 +28,7 @@ export default function AdminApp() {
           <Route path="/students" element={<StudentsPage />} />
           <Route path="/schedule" element={<SchedulePage />} />
           <Route path="/requests" element={<RequestsPage />} />
+          <Route path="/groups" element={<GroupsPage />} />
           <Route path="*" element={<div className="text-slate-600">Pick a tab.</div>} />
         </Routes>
       </main>

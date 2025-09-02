@@ -28,7 +28,8 @@ export default function Login() {
       if (data.user.role === "portal" && data.user.mustChangePassword) {
         nav("/portal/change-password");
       } else {
-        nav(data.user.role === "admin" ? "/admin" : "/portal", { replace: true });
+        // Send portal users straight to Upcoming; admins to their home
+        nav(data.user.role === "admin" ? "/admin" : "/portal/upcoming", { replace: true });
       }
     } catch (e: any) {
       setErr(e.message || "Login failed");

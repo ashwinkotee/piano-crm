@@ -6,7 +6,6 @@ import { requireAuth } from "../middleware/auth";
 import User from "../models/User";
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 const JWT_EXPIRES_IN = "30d";
 
 const LoginSchema = z.object({
@@ -17,23 +16,21 @@ const LoginSchema = z.object({
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = LoginSchema.parse(req.body);
-    // const user = await User.findOne({ email: email.toLowerCase(), active: true });
-    const user = await User.findOne({ email: email.toLowerCase()});
-    // console.log(await User.findOne({ email: email.toLowerCase()}));
-    
+    const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) return res.status(401).json({ error: "Invalid credentials" });
 
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ error: "Invalid credentials" });
 
-    const token = jwt.sign({ sub: String(user._id), role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+    const secret = process.env.JWT_SECRET || "dev_secret_change_me";
+    const token = jwt.sign({ sub: String(user._id), role: user.role }, secret, { expiresIn: JWT_EXPIRES_IN });
     res.json({
       token,
       user: {
         _id: user._id,
         email: user.email,
         role: user.role,
-        mustChangePassword: !!user.mustChangePassword, // ⬅️ important
+        mustChangePassword: !!user.mustChangePassword,
       },
     });
   } catch (e: any) {

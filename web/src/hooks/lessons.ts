@@ -5,6 +5,7 @@ export type Lesson = {
   _id: string;
   type: "one" | "group";
   studentId: string;
+  groupId?: string;
   start: string; // ISO
   end: string;   // ISO
   status: "Scheduled" | "Cancelled" | "Completed";

@@ -19,7 +19,10 @@ export default function PortalApp() {
       </header>
       <main className="mx-auto max-w-4xl px-4 py-6">
         <Routes>
-          <Route path="/upcoming" element={<UpcomingPage />} />
+          {/* Default to upcoming when visiting /portal */}
+          <Route index element={<UpcomingPage />} />
+          {/* Use relative path to nest under /portal */}
+          <Route path="upcoming" element={<UpcomingPage />} />
           <Route path="*" element={<div className="text-slate-600">Pick a tab.</div>} />
         </Routes>
       </main>

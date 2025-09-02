@@ -61,7 +61,7 @@ r.post("/", requireAuth(["admin"]), async (req, res) => {
       passwordHash,
       role: "portal",
       active: true,
-      mustChangePassword: true, // ⬅️ force first login change
+      mustChangePassword: true, // Force first login change
     });
 
     const student = await Student.create({
@@ -101,3 +101,4 @@ r.put("/:id", requireAuth(["admin"]), async (req, res) => {
 });
 
 export default r;
+

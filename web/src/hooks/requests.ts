@@ -32,10 +32,7 @@ export function useRequests() {
   }};
 }
 
-export async function createRequest(payload: { lessonId: string; type: "reschedule"|"cancel"; message?: string; proposedStart?: string }) {
-  const r = await api.post("/requests", payload);
-  return r.data as RequestItem;
-}
+// createRequest removed as unused; add back when portal requests form is implemented
 
 export async function decideRequest(id: string, payload: { status: "Approved"|"Rejected"; decisionNote?: string; newStart?: string }) {
   const r = await api.patch(`/requests/${id}`, payload);

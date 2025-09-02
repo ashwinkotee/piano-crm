@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useLessons } from "../../hooks/lessons";
 import { addMonths, format, parse, startOfMonth } from "date-fns";
 

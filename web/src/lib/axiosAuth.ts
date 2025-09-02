@@ -5,7 +5,9 @@ export function installAxiosAuth() {
   api.interceptors.request.use((config) => {
     const token = useAuth.getState().token;
     if (token) {
-      (config.headers ||= {})["Authorization"] = `Bearer ${token}`;
+      const headers: any = config.headers ?? {};
+      headers["Authorization"] = `Bearer ${token}`;
+      config.headers = headers;
     }
     return config;
   });
@@ -21,4 +23,3 @@ export function installAxiosAuth() {
     }
   );
 }
-

@@ -1,8 +1,7 @@
 import React, { useMemo, useState } from "react";
+import Modal from "../../components/ui/Modal";
 import type { Student } from "../../hooks/students";
 import { useStudents, createStudent, updateStudent } from "../../hooks/students";
-
-type Group = "One-on-one" | "Group 6-9" | "Group 10-14" | "Group 15+";
 
 const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"] as const;
 
@@ -10,22 +9,7 @@ export default function StudentsPage() {
   const [search, setSearch] = useState("");
   const { data, loading, refresh } = useStudents({ q: search });
 
-  const groups = useMemo(() => {
-    const res: Record<Group, Student[]> = {
-      "One-on-one": [],
-      "Group 6-9": [],
-      "Group 10-14": [],
-      "Group 15+": [],
-    };
-    data.forEach(s => {
-      if (s.program === "One-on-one") res["One-on-one"].push(s);
-      else {
-        const key = s.ageGroup === "6-9" ? "Group 6-9" : s.ageGroup === "10-14" ? "Group 10-14" : "Group 15+";
-        res[key].push(s);
-      }
-    });
-    return res;
-  }, [data]);
+  const all = useMemo(() => [...data].sort((a,b) => a.name.localeCompare(b.name)), [data]);
 
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Student | null>(null);
@@ -36,13 +20,13 @@ export default function StudentsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="text-xl font-semibold">Students</div>
-          <div className="text-sm text-slate-500">Grouped by program / age group</div>
+          <div className="text-sm text-slate-500">All students in one table</div>
         </div>
         <div className="flex items-center gap-2">
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name…"
+            placeholder="Search by name."
             className="w-60 rounded-xl border px-3 py-2"
           />
           <button onClick={() => setAdding(true)} className="rounded-xl bg-indigo-600 text-white px-3 py-2">
@@ -52,13 +36,11 @@ export default function StudentsPage() {
       </div>
 
       {loading ? (
-        <div className="text-slate-500">Loading…</div>
+        <div className="text-slate-500">Loading.</div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <StudentTable title="One-on-one" items={groups["One-on-one"]} onEdit={setEditing} />
-          <StudentTable title="Group 1 (Age 6-9)" items={groups["Group 6-9"]} onEdit={setEditing} />
-          <StudentTable title="Group 2 (Age 10-14)" items={groups["Group 10-14"]} onEdit={setEditing} />
-          {/* <StudentTable title="Group 3 (Age 15+)" items={groups["Group 15+"]} onEdit={setEditing} /> */}
+        <div className="rounded-2xl border bg-white p-4 shadow-sm overflow-x-auto">
+          <div className="mb-2 font-semibold">All Students</div>
+          <StudentTable items={all} onEdit={setEditing} />
         </div>
       )}
 
@@ -86,17 +68,16 @@ export default function StudentsPage() {
   );
 }
 
-function StudentTable({ title, items, onEdit }:{
-  title: string; items: Student[]; onEdit: (s: Student)=>void
+function StudentTable({ items, onEdit }:{
+  items: Student[]; onEdit: (s: Student)=>void
 }) {
   return (
-    <div className="rounded-2xl border bg-white p-4 shadow-sm overflow-x-auto">
-      <div className="mb-2 font-semibold">{title}</div>
-      <table className="w-full min-w-[640px] text-sm">
+      <table className="w-full min-w-[760px] text-sm">
         <thead className="text-left text-slate-500">
           <tr>
             <th className="p-2 whitespace-nowrap">Name</th>
             <th className="p-2 whitespace-nowrap">Program</th>
+            <th className="p-2 whitespace-nowrap">Age Group</th>
             <th className="p-2 whitespace-nowrap">Weekly slot</th>
             <th className="p-2 whitespace-nowrap">Fee</th>
             <th className="p-2 whitespace-nowrap">Status</th>
@@ -109,13 +90,11 @@ function StudentTable({ title, items, onEdit }:{
             const displaySlot = slot && typeof slot.weekday === "number" && slot.time
               ? `${WEEKDAYS[slot.weekday]} - ${slot.time}`
               : "-";
-            const slotText = slot && typeof slot.weekday === "number" && slot.time
-              ? `${WEEKDAYS[slot.weekday]} · ${slot.time}`
-              : "—";
             return (
               <tr key={s._id} className="border-t">
                 <td className="p-2 font-medium">{s.name}</td>
-                <td className="p-2">{s.program}{s.ageGroup ? ` • ${s.ageGroup}` : ""}</td>
+                <td className="p-2">{s.program}</td>
+                <td className="p-2">{s.ageGroup || "-"}</td>
                 <td className="p-2 text-slate-600">{displaySlot}</td>
                 <td className="p-2">${s.monthlyFee ?? 0}</td>
                 <td className="p-2">
@@ -131,11 +110,10 @@ function StudentTable({ title, items, onEdit }:{
             );
           })}
           {items.length === 0 && (
-            <tr><td colSpan={6} className="p-3 text-slate-500">No students</td></tr>
+            <tr><td colSpan={7} className="p-3 text-slate-500">No students</td></tr>
           )}
         </tbody>
       </table>
-    </div>
   );
 }
 
@@ -176,8 +154,8 @@ function AddStudentModal({
           </select>
           {program === "Group" ? (
             <select className="rounded-xl border px-3 py-2" value={ageGroup} onChange={e=>setAgeGroup(e.target.value as any)}>
-              <option value="6-9">Age 6–9</option>
-              <option value="10-14">Age 10–14</option>
+              <option value="6-9">Age 6-9</option>
+              <option value="10-14">Age 10-14</option>
               <option value="15+">Age 15+</option>
             </select>
           ) : <div />}
@@ -186,7 +164,7 @@ function AddStudentModal({
         {err && <div className="text-sm text-rose-600">{err}</div>}
         <div className="flex items-center justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className="rounded-xl border px-3 py-2 hover:bg-slate-50">Cancel</button>
-          <button disabled={saving} className="rounded-xl bg-indigo-600 text-white px-3 py-2">{saving ? "Saving…" : "Create"}</button>
+          <button disabled={saving} className="rounded-xl bg-indigo-600 text-white px-3 py-2">{saving ? "Saving." : "Create"}</button>
         </div>
       </form>
       <p className="mt-2 text-xs text-slate-500">A portal account is created automatically for this email with a temporary password.</p>
@@ -203,7 +181,7 @@ function EditStudentModal({ student, onClose, onSaved }:{
   const [monthlyFee, setMonthlyFee] = useState<number>(student.monthlyFee ?? 0);
   const [active, setActive] = useState<boolean>(student.active);
 
-  // NEW: weekly slot (default Tue 17:00 if missing)
+  // weekly slot
   const existing = (student as any).defaultSlot || {};
   const [weekday, setWeekday] = useState<number>(
     typeof existing.weekday === "number" ? existing.weekday : 2
@@ -223,7 +201,6 @@ function EditStudentModal({ student, onClose, onSaved }:{
         name, program,
         ageGroup: program === "Group" ? ageGroup : undefined,
         monthlyFee, active,
-        // write defaultSlot
         defaultSlot: { weekday, time }
       } as any);
       onSaved();
@@ -250,8 +227,8 @@ function EditStudentModal({ student, onClose, onSaved }:{
             <label className="text-sm">
               <div className="text-slate-600">Age group</div>
               <select className="w-full rounded-xl border px-3 py-2" value={ageGroup} onChange={e=>setAgeGroup(e.target.value as any)}>
-                <option value="6-9">Age 6–9</option>
-                <option value="10-14">Age 10–14</option>
+                <option value="6-9">Age 6-9</option>
+                <option value="10-14">Age 10-14</option>
                 <option value="15+">Age 15+</option>
               </select>
             </label>
@@ -270,7 +247,7 @@ function EditStudentModal({ student, onClose, onSaved }:{
           </label>
         </div>
 
-        {/* NEW: Default weekly slot */}
+        {/* Default weekly slot */}
         <div className="rounded-xl border bg-slate-50 p-3">
           <div className="mb-2 text-sm font-medium text-slate-700">Default weekly slot</div>
           <div className="grid grid-cols-2 gap-2">
@@ -292,14 +269,14 @@ function EditStudentModal({ student, onClose, onSaved }:{
             </label>
           </div>
           <div className="mt-1 text-xs text-slate-500">
-            Used by “Generate Month” to create 4 lessons automatically.
+            Used by "Generate Month" to create 4 lessons automatically.
           </div>
         </div>
 
         {err && <div className="text-sm text-rose-600">{err}</div>}
         <div className="flex items-center justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className="rounded-xl border px-3 py-2 hover:bg-slate-50">Cancel</button>
-          <button disabled={saving} className="rounded-xl bg-indigo-600 text-white px-3 py-2">{saving ? "Saving…" : "Save"}</button>
+          <button disabled={saving} className="rounded-xl bg-indigo-600 text-white px-3 py-2">{saving ? "Saving." : "Save"}</button>
         </div>
       </form>
     </Modal>
@@ -314,7 +291,7 @@ function TempPasswordDialog({ info, onClose }:{
       <div className="space-y-2">
         <div>Account email: <span className="font-medium">{info.email}</span></div>
         <div>Temporary password: <code className="rounded bg-slate-100 px-2 py-1">{info.tempPassword}</code></div>
-        <p className="text-xs text-slate-500">Share this with the parent/student. They can sign in and we’ll add a change-password option later.</p>
+        <p className="text-xs text-slate-500">Share this with the parent/student. They can sign in and change password afterwards.</p>
         <div className="flex justify-end">
           <button onClick={onClose} className="rounded-xl bg-indigo-600 text-white px-3 py-2">Done</button>
         </div>
@@ -323,18 +300,3 @@ function TempPasswordDialog({ info, onClose }:{
   );
 }
 
-function Modal({ title, children, onClose }:{
-  title: string; children: React.ReactNode; onClose: ()=>void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-lg rounded-2xl border bg-white p-4 shadow-lg">
-        <div className="mb-2 flex items-center justify-between">
-          <div className="font-semibold">{title}</div>
-          <button onClick={onClose} className="rounded-lg px-2 py-1 hover:bg-slate-100">✕</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}

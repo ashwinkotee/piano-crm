@@ -9,12 +9,10 @@ async function seedStudents() {
   const existing = await Student.countDocuments();
   if (existing > 0) return;
 
+  // Example data (disabled by default)
   // await Student.insertMany([
   //   { name: "Alice Zhou", program: "One-on-one", ageGroup: "15+", monthlyFee: 200, active: true },
   //   { name: "Bob Singh", program: "Group", ageGroup: "6-9", monthlyFee: 139, active: true },
-  //   { name: "Cara Patel", program: "One-on-one", ageGroup: "10-14", monthlyFee: 200, active: true },
-  //   { name: "Diego Ramos", program: "Group", ageGroup: "10-14", monthlyFee: 139, active: true },
-  //   { name: "Elena Rossi", program: "Group", ageGroup: "6-9", monthlyFee: 139, active: false },
   // ]);
   console.log("Seeded students");
 }
@@ -40,10 +38,10 @@ async function main() {
       provider: "email",
       providerId: adminEmail,
     });
-    console.log("✅ Admin created:", adminEmail, "password: admin123");
+    console.log("Admin created:", adminEmail, "password: admin123");
   }
 
-  await seedStudents();  
+  await seedStudents();
 
   // --- Student / portal account ---
   const studentEmail = "student@piano.local";
@@ -55,7 +53,7 @@ async function main() {
     const user = await User.create({
       email: studentEmail,
       passwordHash,
-      role: "portal", // 👈 important: role is portal/student
+      role: "portal",
       profile: { name: "Test Student" },
     });
     await Account.create({
@@ -63,10 +61,11 @@ async function main() {
       provider: "email",
       providerId: studentEmail,
     });
-    console.log("✅ Student created:", studentEmail, "password: student123");
+    console.log("Student created:", studentEmail, "password: student123");
   }
-  
+
   process.exit(0);
 }
 
 main();
+

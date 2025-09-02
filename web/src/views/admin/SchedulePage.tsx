@@ -6,6 +6,7 @@ import type { Lesson } from "../../hooks/lessons";
 import { useLessons, generateMonth, updateLesson, createLesson, deleteLesson } from "../../hooks/lessons";
 import { addMonths, format, parse, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameDay, isSameMonth } from "date-fns";
 import { useStudents } from "../../hooks/students";
+import { useGroups, scheduleGroupSessions, type Group } from "../../hooks/groups";
 
 /* ---------- Local <-> UTC helpers for inputs ----------
    Use native Date handling: a string like "YYYY-MM-DDTHH:mm" is interpreted
@@ -21,7 +22,9 @@ export default function SchedulePage() {
 
   const { data, loading, refresh } = useLessons({ view: "month", startISO: startParam });
   const { data: students } = useStudents({ q: "" });
+  const { data: groups } = useGroups();
   const studentById = useMemo(() => Object.fromEntries(students.map(s => [s._id, s])), [students]);
+  const groupById = useMemo(() => Object.fromEntries(groups.map(g => [g._id, g])), [groups]);
   const [editing, setEditing] = useState<Lesson | null>(null);
   const [adding, setAdding] = useState<{ date?: Date } | null>(null);
   const grouped = useMemo(() => groupByDate(data), [data]);
@@ -33,19 +36,20 @@ export default function SchedulePage() {
         mode={mode}
         onPrev={() => setCursor(addMonths(cursor, -1))}
         onNext={() => setCursor(addMonths(cursor, 1))}
-        onOpenGenerate={() => setGenOpen(true)}
+        onOpenGenerate={() => (window as any).__openGen?.()}
         onAdd={() => setAdding({})}
         onToggleMode={() => setMode(m => (m === "list" ? "calendar" : "list"))}
       />
 
       {mode === "list" ? (
-        <ListView loading={loading} grouped={grouped} onEdit={setEditing} studentById={studentById} />
+        <ListView loading={loading} grouped={grouped} onEdit={setEditing} studentById={studentById} groupById={groupById} />
       ) : (
         <CalendarMonth
           monthDate={cursor}
           lessons={data}
           loading={loading}
           studentById={studentById}
+          groupById={groupById}
           onAddForDate={(d) => setAdding({ date: d })}
           onEdit={setEditing}
         />
@@ -60,7 +64,7 @@ export default function SchedulePage() {
       )}
 
       {adding && (
-        <AddLessonModal
+        <AddLessonDialog
           defaultDate={adding.date}
           onClose={() => setAdding(null)}
           onSaved={async () => { setAdding(null); await refresh(); }}
@@ -104,28 +108,34 @@ function Toolbar({
 function Card({ children }:{ children: React.ReactNode }) {
   return <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">{children}</div>;
 }
-function ListView({ loading, grouped, onEdit, studentById }:{
-  loading: boolean; grouped: Record<string, Lesson[]>; onEdit: (l:Lesson)=>void; studentById: Record<string, { _id: string; name: string }>;
+function ListView({ loading, grouped, onEdit, studentById, groupById }:{
+  loading: boolean; grouped: Record<string, Lesson[]>; onEdit: (l:Lesson)=>void; studentById: Record<string, { _id: string; name: string }>; groupById: Record<string, { _id: string; name: string }>;
 }) {
   if (loading) return <Card><div className="text-slate-500">Loading lessons…</div></Card>;
   if (Object.keys(grouped).length === 0) return <Card><div className="text-slate-500">No lessons scheduled.</div></Card>;
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      {Object.entries(grouped).map(([date, lessons]) => (
+      {Object.entries(grouped).map(([date, lessons]) => {
+        const display = dedupeGroupLessons(lessons);
+        return (
         <Card key={date}>
           <div className="mb-3 flex items-center justify-between">
             <div className="font-semibold">{format(parse(date, "yyyy-MM-dd", new Date()), "EEEE, MMM d")}</div>
-            <Badge tone="muted">{lessons.length} lessons</Badge>
+            <Badge tone="muted">{display.length} items</Badge>
           </div>
           <ul className="divide-y divide-slate-200">
-            {lessons.map(les => (
+            {display.map(les => (
               <li key={les._id} className="flex items-center justify-between py-2">
                 <div className="flex items-center gap-4">
                   <div className="text-sm text-slate-500 w-32">{format(new Date(les.start), "p")} - {format(new Date(les.end), "p")}</div>
                   <div className="text-sm">
                     <div className="font-medium">{les.type === "one" ? "One-on-one" : "Group"}</div>
-                    <div className="text-slate-600">{studentById[les.studentId]?.name || "Unknown student"}</div>
+                    <div className="text-slate-600">
+                      {les.type === "group" && (les as any).groupId
+                        ? (groupById[(les as any).groupId]?.name || "Group")
+                        : (studentById[les.studentId]?.name || "Unknown student")}
+                    </div>
                     {les.notes && <div className="text-slate-500">{les.notes}</div>}
                   </div>
                 </div>
@@ -142,7 +152,7 @@ function ListView({ loading, grouped, onEdit, studentById }:{
             ))}
           </ul>
         </Card>
-      ))}
+      );})}
     </div>
   );
 }
@@ -159,7 +169,7 @@ const studentColorPalette = [
   "bg-lime-50 text-lime-700 border-lime-200",
   "bg-cyan-50 text-cyan-700 border-cyan-200",
 ];
-function colorForStudent(id: string) {
+function colorForKey(id: string) {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
   const idx = Math.abs(h) % studentColorPalette.length;
@@ -193,7 +203,7 @@ function EventPill({ l, onClick, studentName, color }:{ l: Lesson; onClick: ()=>
 // }) {}
 
 function CalendarMonth({
-  monthDate, lessons, loading, onAddForDate, onEdit, studentById
+  monthDate, lessons, loading, onAddForDate, onEdit, studentById, groupById
 }:{
   monthDate: Date;
   lessons: Lesson[];
@@ -201,6 +211,7 @@ function CalendarMonth({
   onAddForDate: (d: Date)=>void;
   onEdit: (l:Lesson)=>void;
   studentById: Record<string, { _id: string; name: string }>;
+  groupById: Record<string, { _id: string; name: string }>;
 }) {
   const start = startOfWeek(startOfMonth(monthDate), { weekStartsOn: 0 });
   const end   = endOfWeek(endOfMonth(monthDate), { weekStartsOn: 0 });
@@ -220,7 +231,7 @@ function CalendarMonth({
         <div className="grid grid-cols-7 gap-px rounded-xl border bg-slate-200">
           {days.map(d => {
             const inMonth = isSameMonth(d, monthDate);
-            const items = lessons.filter(l => isSameDay(new Date(l.start), d));
+            const items = dedupeGroupLessons(lessons.filter(l => isSameDay(new Date(l.start), d)));
             const weekend = [0,6].includes(d.getDay());
             return (
               <div key={d.toISOString()}
@@ -236,10 +247,12 @@ function CalendarMonth({
                 <div className="space-y-1">
                   {items.length === 0 && <div className="text-xs text-slate-300">-</div>}
                   {items.map(l => {
-                    const studentName = studentById[l.studentId]?.name;
-                    const color = colorForStudent(l.studentId);
+                    const isGroup = l.type === "group" && (l as any).groupId;
+                    const label = isGroup ? (groupById[(l as any).groupId!]?.name || "Group") : (studentById[l.studentId]?.name);
+                    const key = isGroup ? `g:${(l as any).groupId}` : `s:${l.studentId}`;
+                    const color = colorForKey(key);
                     return (
-                      <EventPill key={l._id} l={l} onClick={()=>onEdit(l)} studentName={studentName} color={color} />
+                      <EventPill key={l._id} l={l} onClick={()=>onEdit(l)} studentName={label} color={color} />
                     );
                   })}
                 </div>
@@ -302,40 +315,7 @@ function EditLessonModal({ lesson, onClose, onSaved }:{
       setSaving(false);
     }
   }
-  // const [status, setStatus] = useState<Lesson["status"]>(lesson.status);
-  // const [notes, setNotes] = useState(lesson.notes ?? "");
-  // const [start, setStart] = useState(toLocalInput(new Date(lesson.start)));
-  // const [end, setEnd] = useState(toLocalInput(new Date(lesson.end)));
-  // const [saving, setSaving] = useState(false);
-  // const [err, setErr] = useState<string | null>(null);
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null); setSaving(true);
-    try {
-      await updateLesson(lesson._id, {
-        status,
-        notes,
-        start: fromLocalInput(start),
-        end: fromLocalInput(end),
-      });
-      onSaved();
-    } catch (e:any) {
-      setErr(e?.response?.data?.error || "Could not save");
-      setSaving(false);
-    }
-  }
-
-  async function cancelLesson() {
-    setErr(null); setSaving(true);
-    try {
-      await updateLesson(lesson._id, { status: "Cancelled" }); // only status
-      onSaved();
-    } catch (e:any) {
-      setErr(e?.response?.data?.error || "Could not cancel");
-      setSaving(false);
-    }
-  }
+  // duplicate definitions removed
 
   return (
     <Modal title="Edit lesson" onClose={onClose}>
@@ -540,4 +520,142 @@ function groupByDate(lessons: Lesson[]) {
     (acc[key] ||= []).push(l);
     return acc;
   }, {});
+}
+
+// Collapse group lessons so we only show one entry per (groupId, start)
+function dedupeGroupLessons(lessons: Lesson[]): Lesson[] {
+  const seen = new Map<string, Lesson>();
+  const out: Lesson[] = [];
+  for (const l of lessons) {
+    if (l.type === "group" && (l as any).groupId) {
+      const k = `${(l as any).groupId}|${new Date(l.start).toISOString()}`;
+      if (!seen.has(k)) {
+        seen.set(k, l);
+        out.push(l);
+      }
+    } else {
+      out.push(l);
+    }
+  }
+  return out;
+}
+
+/* ---------- New Add lesson dialog (multi-date + groups) ---------- */
+function AddLessonDialog({ defaultDate, onClose, onSaved }:{
+  defaultDate?: Date; onClose: ()=>void; onSaved: ()=>void;
+}) {
+  const { data: students } = useStudents({ q: "" });
+  const { data: groups } = useGroups();
+  const [target, setTarget] = useState<string>("one"); // 'one' or groupId
+  const [studentId, setStudentId] = useState<string>("");
+  const base = defaultDate ?? new Date();
+  const [slots, setSlots] = useState<{ date: string; time: string }[]>([
+    { date: format(base, "yyyy-MM-dd"), time: format(base, "HH:mm") },
+  ]);
+  const [duration, setDuration] = useState<number>(30);
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string|null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null); setSaving(true);
+    try {
+      if (target === "one") {
+        if (!studentId) throw new Error("Select a student");
+        for (const s of slots) {
+          const startISO = fromLocalInput(`${s.date}T${s.time}`);
+          const localStart = new Date(`${s.date}T${s.time}`);
+          const localEnd = new Date(localStart.getTime() + duration * 60000);
+          const endISO = fromLocalInput(toLocalInput(localEnd));
+          await createLesson({ studentId, type: "one", start: startISO, end: endISO, notes: notes || undefined });
+        }
+      } else {
+        const dates = slots.map(s => fromLocalInput(`${s.date}T${s.time}`));
+        await scheduleGroupSessions(target, { dates, durationMinutes: duration, notes: notes || undefined });
+      }
+      onSaved();
+    } catch (e:any) {
+      setErr(e?.response?.data?.error || (e?.message ?? "Could not create"));
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal title="Add lesson" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-3">
+        <div className="grid grid-cols-2 gap-2">
+          <label className="text-sm">
+            <div className="text-slate-600">Type</div>
+            <select className="w-full rounded-xl border px-3 py-2" value={target} onChange={e=>setTarget(e.target.value)}>
+              <option value="one">One-on-one</option>
+              {groups.map(g => (
+                <option key={g._id} value={g._id}>Group: {g.name}</option>
+              ))}
+            </select>
+          </label>
+          {target === "one" ? (
+            <label className="text-sm">
+              <div className="text-slate-600">Student</div>
+              <select className="w-full rounded-xl border px-3 py-2" value={studentId} onChange={e=>setStudentId(e.target.value)} required>
+                <option value="">Select student.</option>
+                {students.map(s => (
+                  <option key={s._id} value={s._id}>{s.name}{s.ageGroup ? ` - ${s.ageGroup}` : ""}</option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <div className="text-sm flex items-end text-slate-600">Scheduling for selected group</div>
+          )}
+        </div>
+
+        {slots.map((s, idx) => (
+          <div key={idx} className="grid grid-cols-3 gap-2">
+            <label className="text-sm">
+              <div className="text-slate-600">Date</div>
+              <input type="date" className="w-full rounded-xl border px-3 py-2"
+                value={s.date} onChange={e=>{ const v=e.target.value; setSlots(prev=>prev.map((p,i)=>i===idx?{...p,date:v}:p)); }} />
+            </label>
+            <label className="text-sm">
+              <div className="text-slate-600">Start time</div>
+              <input type="time" className="w-full rounded-xl border px-3 py-2"
+                value={s.time} onChange={e=>{ const v=e.target.value; setSlots(prev=>prev.map((p,i)=>i===idx?{...p,time:v}:p)); }} />
+            </label>
+            {idx === 0 ? (
+              <label className="text-sm">
+                <div className="text-slate-600">Duration</div>
+                <select className="w-full rounded-xl border px-3 py-2" value={duration}
+                  onChange={e=>setDuration(Number(e.target.value))}>
+                  <option value={30}>30 mins</option>
+                  <option value={45}>45 mins</option>
+                  <option value={60}>60 mins</option>
+                  <option value={75}>1:15 hrs</option>
+                  <option value={90}>1:30 hrs</option>
+                </select>
+              </label>
+            ) : (
+              <div className="flex items-end">
+                <button type="button" className="rounded-xl border px-3 py-2 hover:bg-slate-50" onClick={()=>setSlots(prev=>prev.filter((_,i)=>i!==idx))}>Remove</button>
+              </div>
+            )}
+          </div>
+        ))}
+
+        <div>
+          <button type="button" className="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50" onClick={()=>setSlots(prev=>[...prev, { date: prev[prev.length-1].date, time: prev[prev.length-1].time }])}>+ Add date</button>
+        </div>
+
+        <label className="text-sm">
+          <div className="text-slate-600">Notes (optional)</div>
+          <textarea rows={3} className="w-full rounded-xl border px-3 py-2" value={notes} onChange={e=>setNotes(e.target.value)} />
+        </label>
+
+        {err && <div className="text-sm text-rose-600">{err}</div>}
+        <div className="flex items-center justify-end gap-2 pt-2">
+          <Button variant="secondary" type="button" onClick={onClose}>Close</Button>
+          <Button disabled={saving}>{saving ? "Creating." : "Create"}</Button>
+        </div>
+      </form>
+    </Modal>
+  );
 }
