@@ -27,7 +27,7 @@ dotenv.config({ path: path.resolve(__dirname, "../.env") });
 // console.log("Connecting to:", (process.env.MONGO_URI || "Empty").replace(/\/\/.*:.*@/,"//<redacted>:<redacted>@"));
 
 
-const MONGO = process.env.MONGO_URL || "mongodb+srv://ashwinkumar7496:p6XgpYSKxWN7Wgfk@cluster0.guprpvw.mongodb.net/piano-crm?retryWrites=true&w=majority&appName=Cluster0";
+const MONGO = process.env.MONGO_URL;
 mongoose
   .connect(MONGO)
   .then(async () => {
