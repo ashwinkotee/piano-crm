@@ -10,7 +10,7 @@ export default function PortalApp() {
     <div className="min-h-screen">
       <header className="border-b bg-white">
         <div className="mx-auto max-w-4xl px-4 h-14 flex items-center justify-between">
-          <div className="font-semibold">Piano CRM - Portal</div>
+          <div className="font-semibold">Learn Music with Ashwin - Student Portal</div>
           <nav className="flex gap-2 text-sm">
             <Tab to="/portal/upcoming" label="Upcoming" />
             <button onClick={doLogout} className="rounded-lg border px-3 py-1 hover:bg-slate-100">Logout</button>
