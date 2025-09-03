@@ -6,7 +6,7 @@ import type { Lesson } from "../../hooks/lessons";
 import { useLessons, generateMonth, updateLesson, createLesson, deleteLesson } from "../../hooks/lessons";
 import { addMonths, format, parse, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameDay, isSameMonth } from "date-fns";
 import { useStudents } from "../../hooks/students";
-import { useGroups, scheduleGroupSessions, type Group } from "../../hooks/groups";
+import { useGroups, scheduleGroupSessions } from "../../hooks/groups";
 
 /* ---------- Local <-> UTC helpers for inputs ----------
    Use native Date handling: a string like "YYYY-MM-DDTHH:mm" is interpreted
@@ -361,7 +361,7 @@ function EditLessonModal({ lesson, onClose, onSaved }:{
 }
 
 /* ---------- Add new lesson ---------- */
-function AddLessonModal({ defaultDate, onClose, onSaved }:{
+export function AddLessonModal({ defaultDate, onClose, onSaved }:{
   defaultDate?: Date; onClose: ()=>void; onSaved: ()=>void;
 }) {
   const { data: students } = useStudents({ q: "" });
